@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Página de búsqueda de BOOKS</title>
+</head>
+<body>
+    <h1>Web de consulta</h1>
+    <input type="text" id="searchInput" size="35" placeholder="palabras de busqueda" onkeyup="search()">
+    
+    <label for="tipo_busqueda">Elige tipo de busqueda</label>
+    <select name="tipo_busqueda" id="tipo_busqueda">
+        <option value="search_by_publisher">search_by_all_fields</option>
+        <option value="search_by_title">search_by_title</option>
+        <option value="search_by_author">search_by_author</option>
+        <option value="search_by_year">search_by_year</option>
+        <option value="search_by_publisher">search_by_publisher</option>
+    </select>
+
+    <button onclick="search()">Buscar</button>
+    <div id="json"></div>
+    <br />
+    <div id="results"></div>
+    <div id="tabla"></div>
+
+    <script>
+
+        function search() {
+
+            var query = document.getElementById("searchInput").value;
+            var tipo_busqueda_template = document.getElementById("tipo_busqueda").value;
+
+            // _search/template para llamar la plantilla
+            var url = "http://192.168.208.110:9200/books_alcc/_search/template"; 
+
+            // Diccionario que mapea cada opción del select a su parámetro correspondiente en Elasticsearch
+            var searchParams = {
+                "search_by_title": "title",
+                "search_by_author": "author",
+                "search_by_year": "year",
+                "search_by_publisher": "publisher",
+            };
+            // Obtener el nombre de la variable esperada por la plantilla
+            var searchParamName = searchParams[tipo_busqueda_template];
+
+            // indico tipo de busqueda para template
+            // Si es "search_by_all_fields", usamos un body diferente
+            var body;
+            if (tipo_busqueda_template === "search_by_all_fields") {
+                body = {
+                    "id": "search_by_all_fields",
+                    "params": {
+                        "term": query
+                    }
+                };
+            } else {
+                var searchParamName = searchParams[tipo_busqueda_template]; // Obtener el nombre del parámetro correcto
+                body = {
+                    "id": tipo_busqueda_template,
+                    "params": {
+                        [searchParamName]: query
+                    }
+                };
+            }
+
+            fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(body)
+            })
+                .then(response => response.json())
+                .then(data => {
+
+                    displayProducts(data.hits.hits);   
+                                     
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        
+
+        function displayProducts(data) {
+            var resultsDiv = document.getElementById("tabla");
+            resultsDiv.innerHTML = ""; // Limpiar resultados anteriores
+
+            data.forEach(hit => {
+                var product = hit._source;
+                var score = hit._score;
+                var productDiv = `
+                    <div class="product-card" style="border: 1px solid #ccc; margin-bottom: 10px; padding: 10px; display: flex; align-items: center;">
+                        <img src="${product["Image-URL-S"]}" alt="Book Cover" style="width: 50px; height: auto; margin-right: 10px;"/>
+                        <div>
+                            <div class="product-header" style="margin-bottom: 5px;">
+                                <span><strong>ISBN:</strong> ${product["ISBN"]}</span> | 
+                                <span><strong>Book-Title:</strong> ${product["Book-Title"]}</span> | 
+                                <span><strong>Author:</strong> ${product["Book-Author"]}</span> | 
+                                <span><strong>Year:</strong> ${product["Year-Of-Publication"]}</span> | 
+                                <span><strong>Publisher:</strong> ${product["Publisher"]}</span> | 
+                                <span><strong>Score:</strong> ${score}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                resultsDiv.innerHTML += productDiv;
+            });
+        }
+
+    </script>
+</body>
+</html>
